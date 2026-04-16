@@ -20,27 +20,41 @@ class CharacterListViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<CharacterListState>(CharacterListState.Loading)
     val uiState: StateFlow<CharacterListState> = _uiState.asStateFlow()
 
-    private var currentPage = 1
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    private var currentPage = (1..30).random()
 
     init {
         loadCharacters()
     }
 
-    fun loadCharacters(page: Int = 1) {
-        currentPage = page
+    fun loadCharacters(page: Int = currentPage, isRefresh: Boolean = false) {
         viewModelScope.launch {
-            _uiState.value = CharacterListState.Loading
-            getCharactersUseCase()
+            if (isRefresh) {
+                _isRefreshing.value = true
+            } else {
+                _uiState.value = CharacterListState.Loading
+            }
+
+            getCharactersUseCase(page)
                 .catch { throwable ->
                     _uiState.value = CharacterListState.Error(
-                        throwable.message ?: "Unknown error occurred"
+                        throwable.message ?: "Error desconocido"
                     )
+                    _isRefreshing.value = false
                 }
                 .collect { characters ->
                     _uiState.value = CharacterListState.Success(characters)
+                    _isRefreshing.value = false
                 }
         }
     }
 
     fun retry() = loadCharacters(currentPage)
+
+    fun refreshWithRandomPage() {
+        currentPage = (1..30).random()
+        loadCharacters(currentPage, isRefresh = true)
+    }
 }
